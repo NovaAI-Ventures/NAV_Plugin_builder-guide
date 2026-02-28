@@ -2,8 +2,12 @@
   "hooks": {
     "Setup": [
       {
-        "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh"
+          }
+        ]
       }
     ]
   }

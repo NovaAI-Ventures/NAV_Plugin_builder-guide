@@ -1,0 +1,16 @@
+{
+  "name": "PLUGIN_NAME",
+  "description": "PLUGIN_DESCRIPTION",
+  "version": "1.0.0",
+  "author": { "name": "NovaAI-Ventures" },
+  "mcpServers": {
+    "PLUGIN_NAME": {
+      "type": "http",
+      "url": "https://PLUGIN_NAME.mcp.nova-labs.ai/",
+      "headers": {
+        "x-api-key": "${PLUGIN_NAME_UPPER_MCP_API_KEY}"
+      }
+    }
+  },
+  "hooks": "./hooks/hooks.json"
+}

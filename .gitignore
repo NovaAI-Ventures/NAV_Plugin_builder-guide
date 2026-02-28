@@ -1,0 +1,18 @@
+# Credentials
+*.json
+!.claude-plugin/plugin.json
+!skills/plugin-builder/templates/pure-skill/plugin.json
+!skills/plugin-builder/templates/skill-commands/plugin.json
+!skills/plugin-builder/templates/mcp-http/plugin.json
+!skills/plugin-builder/templates/mcp-http/hooks/hooks.json
+!skills/plugin-builder/examples/*.json
+.env
+.env.local
+env.local
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

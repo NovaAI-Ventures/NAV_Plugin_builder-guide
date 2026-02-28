@@ -1,0 +1,13 @@
+# Credentials
+*.json
+!.claude-plugin/plugin.json
+.env
+.env.local
+env.local
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

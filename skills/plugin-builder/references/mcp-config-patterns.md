@@ -235,3 +235,61 @@ Single gateway key — Playwright runs on the proxy server, no upstream API.
 ```
 
 No credentials, no proxy — runs entirely locally.
+
+## Third-Party Plugins
+
+Third-party plugins (repos outside NovaAI-Ventures) can be added to the marketplace and will work automatically thanks to credential-loader Phase 3 auto-registration.
+
+### Requirements
+
+1. **`plugin.json` must declare `mcpServers`** — the plugin must have a `.claude-plugin/plugin.json` with an `mcpServers` block
+2. **Marketplace `name` is canonical** — the marketplace entry name is used for identification, not the name inside plugin.json
+3. **Version should be semver** — some upstream repos use non-semver (e.g. `"latest"`); the marketplace entry controls the version shown to users
+
+### How Auto-Registration Works
+
+When a 3rd-party plugin is installed:
+1. Claude Code clones the repo into `~/.claude/plugins/cache/{marketplace}/{name}/{version}/`
+2. At session start, credential-loader Phase 3 reads its `plugin.json`
+3. Any `mcpServers` entries not already in `.mcp.json` are added automatically
+4. No setup.sh or hooks.json needed from the 3rd-party repo
+
+### Example: chrome-devtools
+
+Upstream repo (`ChromeDevTools/chrome-devtools-mcp`) has:
+```json
+{
+  "name": "chrome-devtools-mcp",
+  "version": "latest",
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["chrome-devtools-mcp@latest"]
+    }
+  }
+}
+```
+
+Marketplace entry:
+```json
+{
+  "name": "chrome-devtools",
+  "version": "1.0.0",
+  "source": { "source": "github", "repo": "ChromeDevTools/chrome-devtools-mcp" }
+}
+```
+
+At session start, credential-loader adds to `.mcp.json`:
+```json
+"chrome-devtools": {
+  "command": "npx",
+  "args": ["chrome-devtools-mcp@latest"]
+}
+```
+
+### No Wrapper Repos Needed
+
+Previously, 3rd-party plugins required a NAV wrapper repo with setup.sh to write `.mcp.json`. With Phase 3 auto-registration, the marketplace can point directly to upstream repos. This avoids:
+- Maintenance burden of keeping wrappers in sync
+- Stale versions when upstream updates
+- Duplicate repos for every 3rd-party tool

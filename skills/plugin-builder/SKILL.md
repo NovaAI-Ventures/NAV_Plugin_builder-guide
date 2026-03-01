@@ -380,6 +380,8 @@ See `references/command-format.md` for full format reference.
 
 **Skip this step unless PLUGIN_TYPE is `mcp-http`.**
 
+> **Note:** As of credential-loader v1.0.2, **Phase 1 (.mcp.json writing) is handled automatically** by credential-loader Phase 3 for all plugins that declare `mcpServers` in plugin.json. setup.sh is still recommended for NAV plugins because it provides credential validation and visual status banners. 3rd-party plugins without setup.sh will still get their MCP servers auto-registered.
+
 Create `${PLUGIN_DIR}/hooks/hooks.json`:
 ```json
 {
@@ -396,7 +398,7 @@ Create `${PLUGIN_DIR}/hooks/hooks.json`:
 
 Create `${PLUGIN_DIR}/scripts/setup.sh` with the **three-phase pattern**:
 
-**Phase 1** — Ensure MCP server entry exists in `.mcp.json` (uses python3 to read/write JSON).
+**Phase 1** — Ensure MCP server entry exists in `.mcp.json` (uses python3 to read/write JSON). This is now also handled by credential-loader Phase 3 as a fallback, but setup.sh provides immediate registration during install.
 
 **Phase 1.5** — Source `.env.local` and `.env` into the current shell process. This is critical because each Setup hook runs in a separate process, so environment variables written by the credential-loader to `$CLAUDE_ENV_FILE` aren't available yet.
 

@@ -383,3 +383,56 @@ plugin-root/
 ```
 
 The `hooks.json` references the script. The `plugin.json` references `hooks.json`. This indirection allows multiple hooks per event and keeps the manifest clean.
+
+## Automatic MCP Registration (credential-loader Phase 3)
+
+As of credential-loader v1.0.2, **plugins no longer need setup.sh to register MCP servers**. The credential-loader automatically handles this at session start.
+
+### How It Works
+
+At every session start, after Phase 1 (env loading) and Phase 2 (credential checking), the credential-loader runs **Phase 3**:
+
+1. Reads `installed_plugins.json` to find all installed plugins
+2. For each plugin, reads `.claude-plugin/plugin.json`
+3. If `mcpServers` is defined, checks each server name against `.mcp.json`
+4. If a server is **not** already in `.mcp.json`, adds it (preserving existing entries)
+5. Skips servers that are already present (idempotent)
+
+### What This Means for Plugin Authors
+
+**3rd-party plugins** (like `chrome-devtools` from `ChromeDevTools/chrome-devtools-mcp`):
+- Just need `mcpServers` in their `plugin.json` — no setup.sh, no hooks.json needed
+- Auto-registered at session start by credential-loader
+- Works with both HTTP and subprocess transport types
+
+**NAV plugins** (with setup.sh):
+- setup.sh still runs first and writes its own `.mcp.json` entries
+- Phase 3 sees the entry already exists and skips it — no conflict
+- setup.sh is still recommended for: credential validation banners, custom setup logic
+
+### Priority Order
+
+```
+Session Start
+    │
+    ├─ 1. Plugin setup.sh hooks fire (for plugins that have them)
+    │     → May write MCP entries to .mcp.json
+    │
+    ├─ 2. credential-loader Phase 1: Load .env files
+    │
+    ├─ 3. credential-loader Phase 2: Check missing credentials
+    │
+    └─ 4. credential-loader Phase 3: Auto-register remaining mcpServers
+          → Only adds entries NOT already in .mcp.json
+          → Catches plugins without setup.sh
+```
+
+### When setup.sh Is Still Needed
+
+| Use Case | setup.sh Required? |
+|----------|-------------------|
+| Basic MCP registration | No (Phase 3 handles it) |
+| Credential validation with status banner | Yes |
+| Custom dependency checks | Yes |
+| Post-install configuration | Yes |
+| 3rd-party plugin with no credentials | No |

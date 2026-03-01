@@ -107,21 +107,19 @@ Use `\n` for newlines in the JSON string:
 {"status":"success","systemMessage":"[plugin] needs these env vars:\n  VAR_ONE=value\n  VAR_TWO=value\nSee .env.example."}
 ```
 
-## Phase 1.5: Self-Sourcing Credentials
+## Phase 1: Reading Credentials from .env.local
 
-**Problem:** Each Setup hook runs as a separate shell process. The credential-loader writes variables to `$CLAUDE_ENV_FILE`, but those are only loaded into Claude Code's environment *after all hooks finish*. A Setup hook that checks `${MY_VAR:-}` will see an empty value even though the key exists in `.env.local`.
+**Problem:** Each Setup hook runs as a separate shell process. Environment variables are not inherited from the credential-loader or other hooks. The setup.sh must read `.env.local` directly to get credential values.
 
-**Solution:** Before checking credentials, source `.env.local` and `.env` directly in the hook script. This is called **Phase 1.5** because it sits between Phase 1 (MCP config) and Phase 2 (credential check).
+**Why this matters:** `${VAR}` placeholders in `.mcp.json` HTTP headers are NOT resolved at MCP connection time. The setup.sh must read actual credential values and write them as hardcoded strings into `.mcp.json`.
 
-### The Pattern
+### The Safe Parser Pattern
 
-Add this block before any `${VAR:-}` checks:
+This block reads `.env.local` and `.env` safely, exporting KEY=VALUE pairs:
 
 ```bash
-# --- Phase 1.5: Load credentials into this shell ---
-# Hooks run in separate processes, so vars written to $CLAUDE_ENV_FILE
-# by credential-loader aren't in our environment yet. Source them.
-for _envfile in .env.local .env; do
+# --- Phase 1: Read existing credentials from .env.local ---
+for _envfile in "$ENV_LOCAL" .env; do
   if [ -f "$_envfile" ]; then
     while IFS= read -r _line; do
       case "$_line" in '#'*|'') continue;; esac
@@ -146,7 +144,7 @@ The safe parser above only exports lines that match `KEY=VALUE` where `KEY` is a
 
 ### Priority Order
 
-The loop iterates `.env.local` first, then `.env`. Since `export` overwrites, if both files define the same key, `.env` wins. This matches the credential-loader's priority where project-wide `.env` can override skill-local values.
+The loop iterates `.env.local` first, then `.env`. Since `export` overwrites, if both files define the same key, `.env` wins.
 
 ## Visual Status Output
 
@@ -254,58 +252,25 @@ This gives a distinctive "logo" feel to each plugin's output.
 
 ## Standard Setup Script (Complete Template)
 
-This is the full pattern used by all MCP HTTP plugins. It combines all three phases:
+This is the full 4-phase pattern used by all MCP HTTP plugins. It reads `.env.local`, writes **resolved values** (not `${VAR}` placeholders) into `.mcp.json`, creates `.env.local` placeholders for missing keys, and reports status.
+
+**IMPORTANT:** `${VAR}` placeholders in `.mcp.json` HTTP headers are NOT resolved at MCP connection time. Headers must contain hardcoded credential values. setup.sh reads `.env.local` and writes the actual values.
 
 ```bash
 #!/usr/bin/env bash
-# Setup hook — adds MCP server to .mcp.json and checks credentials
+# Setup hook — writes resolved credentials to .mcp.json, ensures .env.local has placeholders
 
 PLUGIN_NAME="your-plugin"
 MCP_JSON=".mcp.json"
+ENV_LOCAL=".env.local"
+MCP_URL="https://your-plugin.mcp.majewscy.tech/"
+BANNER_TITLE="Y O U R   P L U G I N"
 
-# --- Phase 1: Ensure MCP server entry exists in .mcp.json ---
-if [ -f "$MCP_JSON" ]; then
-  HAS_ENTRY=$(python3 -c "
-import json
-try:
-    with open('$MCP_JSON') as f:
-        data = json.load(f)
-    print('yes' if '$PLUGIN_NAME' in data.get('mcpServers', {}) else 'no')
-except Exception:
-    print('no')
-" 2>/dev/null)
-else
-  HAS_ENTRY="no"
-fi
+# Credential variable names
+_ALL_VARS=("YOUR_MCP_API_KEY" "YOUR_OTHER_KEY")
 
-if [ "$HAS_ENTRY" = "no" ]; then
-  python3 -c "
-import json
-from pathlib import Path
-
-mcp_file = Path('$MCP_JSON')
-if mcp_file.exists():
-    with open(mcp_file) as f:
-        data = json.load(f)
-else:
-    data = {'mcpServers': {}}
-
-data.setdefault('mcpServers', {})['$PLUGIN_NAME'] = {
-    'type': 'http',
-    'url': 'https://$PLUGIN_NAME.mcp.nova-labs.ai/',
-    'headers': {
-        'x-api-key': '\${YOUR_MCP_API_KEY}'
-    }
-}
-
-with open(mcp_file, 'w') as f:
-    json.dump(data, f, indent=2)
-    f.write('\n')
-" 2>/dev/null
-fi
-
-# --- Phase 1.5: Load credentials into this shell ---
-for _envfile in .env.local .env; do
+# --- Phase 1: Read existing credentials from .env.local ---
+for _envfile in "$ENV_LOCAL" .env; do
   if [ -f "$_envfile" ]; then
     while IFS= read -r _line; do
       case "$_line" in '#'*|'') continue;; esac
@@ -318,8 +283,44 @@ for _envfile in .env.local .env; do
   fi
 done
 
-# --- Phase 2: Check required credentials and report status ---
-_ALL_VARS=("YOUR_MCP_API_KEY")
+# --- Phase 2: Write .mcp.json with resolved values ---
+# Uses actual credential values from .env.local, or empty string if missing
+python3 -c "
+import json, os
+from pathlib import Path
+
+mcp_file = Path('$MCP_JSON')
+if mcp_file.exists():
+    with open(mcp_file) as f:
+        data = json.load(f)
+else:
+    data = {'mcpServers': {}}
+
+data.setdefault('mcpServers', {})['$PLUGIN_NAME'] = {
+    'type': 'http',
+    'url': '$MCP_URL',
+    'headers': {
+        'x-api-key': os.environ.get('YOUR_MCP_API_KEY', ''),
+        'x-your-other-key': os.environ.get('YOUR_OTHER_KEY', ''),
+    }
+}
+
+with open(mcp_file, 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+" 2>/dev/null
+
+# --- Phase 3: Ensure .env.local has all required keys ---
+for _var in "${_ALL_VARS[@]}"; do
+  if [ ! -f "$ENV_LOCAL" ] || ! grep -q "^${_var}=" "$ENV_LOCAL" 2>/dev/null; then
+    if [ ! -f "$ENV_LOCAL" ]; then
+      echo "# === ${PLUGIN_NAME} ===" > "$ENV_LOCAL"
+    fi
+    echo "${_var}=" >> "$ENV_LOCAL"
+  fi
+done
+
+# --- Phase 4: Status banner ---
 _MISSING=()
 _SET=()
 for _var in "${_ALL_VARS[@]}"; do
@@ -333,7 +334,7 @@ done
 
 MSG="\\n"
 MSG="${MSG}  ╭──────────────────────────────────────────────╮\\n"
-MSG="${MSG}  │         Y O U R   P L U G I N                │\\n"
+MSG="${MSG}  │              ${BANNER_TITLE}         │\\n"
 MSG="${MSG}  ╰──────────────────────────────────────────────╯\\n"
 MSG="${MSG}\\n"
 MSG="${MSG}    ✔  MCP server configured\\n"
@@ -342,7 +343,7 @@ for _var in "${_SET[@]}"; do
   MSG="${MSG}    ✔  ${_var}\\n"
 done
 for _var in "${_MISSING[@]}"; do
-  MSG="${MSG}    ✗  ${_var}  ← missing\\n"
+  MSG="${MSG}    ✗  ${_var}  ← empty\\n"
 done
 
 if [ ${#_MISSING[@]} -gt 0 ]; then
@@ -351,20 +352,21 @@ if [ ${#_MISSING[@]} -gt 0 ]; then
   MSG="${MSG}\\n"
   MSG="${MSG}    1. Get your API key from ...\\n"
   MSG="${MSG}    2. Get MCP API key from your MCP proxy admin\\n"
-  MSG="${MSG}    3. Add to .env.local in project root:\\n"
+  MSG="${MSG}    Fill in .env.local in project root:\\n"
   for _var in "${_MISSING[@]}"; do
     MSG="${MSG}         ${_var}=your_value_here\\n"
   done
-  MSG="${MSG}    4. Restart Claude Code\\n"
+  MSG="${MSG}    Then restart Claude Code\\n"
 fi
 
 echo "{\"status\":\"success\",\"systemMessage\":\"${MSG}\"}"
 ```
 
 **Critical details:**
-- Use `${!_var}` (bash indirect expansion) to check variables dynamically
-- Always include Phase 1.5 to source `.env.local` before checking credentials
-- Use `${VAR:-}` syntax if checking variables directly (without the loop pattern)
+- **NEVER use `${VAR}` in `.mcp.json` headers** — they are NOT resolved at MCP connection time
+- Phase 2 uses `os.environ.get()` to read values exported by Phase 1, writing actual values (or `""`) into `.mcp.json`
+- Phase 3 only appends missing keys to `.env.local` — never overwrites existing values
+- Use `${!_var}` (bash indirect expansion) to check variables dynamically in Phase 4
 - Always output JSON, even on error — never output plain text
 - The script must be executable: `chmod +x scripts/setup.sh`
 - Use `${CLAUDE_PLUGIN_ROOT}` in hooks.json, not relative paths

@@ -1,7 +1,9 @@
 {
   "name": "plugin-builder-guide",
-  "description": "Interactive guide for building NovaAI plugins — scaffold, register, configure proxy, publish to marketplace",
-  "version": "1.0.1",
-  "author": { "name": "NovaAI-Ventures" },
+  "description": "Interactive guide for building NovaAI plugins \u2014 scaffold, register, configure proxy, publish to marketplace",
+  "version": "1.0.2",
+  "author": {
+    "name": "NovaAI-Ventures"
+  },
   "skills": "./skills/"
 }

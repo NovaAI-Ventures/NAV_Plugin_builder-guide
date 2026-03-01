@@ -394,31 +394,43 @@ Create `${PLUGIN_DIR}/hooks/hooks.json`:
 }
 ```
 
-Create `${PLUGIN_DIR}/scripts/setup.sh`:
-```bash
-#!/usr/bin/env bash
-# Setup hook — checks required environment variables
+Create `${PLUGIN_DIR}/scripts/setup.sh` with the **three-phase pattern**:
 
-PLUGIN_NAME="${PLUGIN_NAME}"
-MISSING=()
+**Phase 1** — Ensure MCP server entry exists in `.mcp.json` (uses python3 to read/write JSON).
+
+**Phase 1.5** — Source `.env.local` and `.env` into the current shell process. This is critical because each Setup hook runs in a separate process, so environment variables written by the credential-loader to `$CLAUDE_ENV_FILE` aren't available yet.
+
+**Phase 2** — Check required credentials and output a visual status card with `✔`/`✗` indicators.
+
+Use the template at `templates/mcp-http/scripts/setup.sh` as the base. Customise:
+
+1. Set `PLUGIN_NAME` to the plugin's kebab-case name
+2. Update the Phase 1 python block with the correct MCP URL and headers
+3. Set `_ALL_VARS` array to the plugin's required env var names
+4. Update the banner title with spaced uppercase letters (e.g., `G M A I L`)
+5. Update the setup instructions with credential-specific URLs
+
+**Title banner convention** — use spaced uppercase for the plugin name:
+```
+  ╭──────────────────────────────────────────────╮
+  │              G M A I L   P L U G I N         │
+  ╰──────────────────────────────────────────────╯
 ```
 
-For each credential env var, add:
-```bash
-[ -z "${VAR_NAME:-}" ] && MISSING+=("VAR_NAME")
+**Credential status** — each var gets its own line:
+```
+    ✔  GMAIL_MCP_API_KEY
+    ✗  GMAIL_REFRESH_TOKEN  ← missing
 ```
 
-Then add the standard check/output block:
-```bash
-if [ ${#MISSING[@]} -gt 0 ]; then
-  VARS_LIST=""
-  for v in "${MISSING[@]}"; do
-    VARS_LIST="${VARS_LIST}  ${v}=your_value_here\n"
-  done
-  echo "{\"status\":\"success\",\"systemMessage\":\"[$PLUGIN_NAME] needs these env vars in .env.local:\\n${VARS_LIST}See .env.example for details.\"}"
-else
-  echo "{\"status\":\"success\",\"systemMessage\":\"[$PLUGIN_NAME]: All credentials configured.\"}"
-fi
+**Setup instructions** — only shown when credentials are missing:
+```
+  ┄┄ Setup ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+
+    1. Get your API key from ...
+    2. Add to .env.local in project root:
+         GMAIL_MCP_API_KEY=your_value_here
+    3. Restart Claude Code
 ```
 
 Make executable:
@@ -426,7 +438,7 @@ Make executable:
 chmod +x "${PLUGIN_DIR}/scripts/setup.sh"
 ```
 
-See `references/hooks-system.md` for hook types and JSON format.
+See `references/hooks-system.md` for the complete template, Phase 1.5 explanation, and visual output format.
 
 ---
 

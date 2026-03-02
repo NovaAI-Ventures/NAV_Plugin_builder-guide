@@ -1,5 +1,5 @@
 ---
-name: plugin-builder
+name: nav-plugin-builder
 description: >
   Interactive guide for building NovaAI plugins. Walks through the full lifecycle:
   choose type, scaffold files, register on management.nova-labs.ai, store credentials

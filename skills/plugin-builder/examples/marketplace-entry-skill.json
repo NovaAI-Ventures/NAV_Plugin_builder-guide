@@ -1,9 +1,0 @@
-{
-  "name": "build-and-prove",
-  "source": {
-    "source": "github",
-    "repo": "NovaAI-Ventures/NAV_Plugin_build-and-prove"
-  },
-  "description": "Delivery verification protocol - screenshot evidence, console checks, and escalation for every deliverable",
-  "version": "1.0.0"
-}

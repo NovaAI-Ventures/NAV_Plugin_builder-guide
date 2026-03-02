@@ -1,9 +1,0 @@
-{
-  "name": "gmail",
-  "source": {
-    "source": "github",
-    "repo": "NovaAI-Ventures/NAV_Plugin_gmail"
-  },
-  "description": "Gmail — search, read, send, draft, label, and filter emails",
-  "version": "1.0.0"
-}

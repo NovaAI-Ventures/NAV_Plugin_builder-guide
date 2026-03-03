@@ -121,7 +121,7 @@ Plugins are informally categorized by their function:
 | Infrastructure | infra, cloudflare, local-dev-environment |
 | Communication | gmail, home-assistant |
 | SEO & Analytics | ahrefs, google-analytics, google-search-console |
-| Development | build-and-prove, visual-testing, sequential-thinking |
+| Development | build-and-prove, nav-visual-testing, sequential-thinking |
 | Content | landing-page-copywriter, landing-page-guide |
 | AI & Automation | manus-mcp, apify, firecrawl |
 | Browser | playwright, context7 |

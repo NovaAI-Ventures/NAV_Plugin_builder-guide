@@ -1,5 +1,5 @@
 {
-  "name": "plugin-builder-guide",
+  "name": "builder-guide",
   "description": "Interactive guide for building NovaAI plugins \u2014 scaffold, register, configure proxy, publish to marketplace",
   "version": "1.0.2",
   "author": {

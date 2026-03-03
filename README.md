@@ -5,7 +5,7 @@ Interactive Claude Code skill that walks you through the full plugin lifecycle: 
 ## Installation
 
 ```bash
-/plugins install plugin-builder-guide
+/plugins install builder-guide
 ```
 
 ## Usage
